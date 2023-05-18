@@ -1,10 +1,11 @@
 """
 Custom Norm wrappers to enable sync BN, regular BN and for weight initialization
 """
+import torch
 import torch.nn as nn
 from config import cfg
 
-from apex import amp
+#from apex import amp
 
 def Norm2d(in_channels):
     """
@@ -30,10 +31,12 @@ def initialize_weights(*models):
                 module.bias.data.zero_()
 
 
-@amp.float_function
+#@amp.float_function
+#@autocast()
 def Upsample(x, size):
     """
     Wrapper Around the Upsample Call
     """
-    return nn.functional.interpolate(x, size=size, mode='bilinear',
-                                     align_corners=True)
+    with torch.cuda.amp.autocast():
+        return nn.functional.interpolate(x, size=size, mode='bilinear',
+                                         align_corners=True)

@@ -11,7 +11,7 @@ from datetime import datetime
 import logging
 from subprocess import call
 import shlex
-from tensorboardX import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 import numpy as np
 import torchvision.transforms as standard_transforms
 import torchvision.utils as vutils
@@ -25,7 +25,7 @@ def make_exp_name(args, parser):
     # sort so that we get a consistent directory name
     argnames = sorted(dict_args)
     ignorelist = ['exp', 'arch','prev_best_filepath', 'lr_schedule', 'max_cu_epoch', 'max_epoch',
-                  'strict_bdr_cls', 'world_size', 'tb_path','best_record', 'test_mode', 'ckpt']
+                  'strict_bdr_cls', 'world_size', 'tb_path','best_record', 'dry-run', 'ckpt']
     # build experiment name with non-default args
     for argname in argnames:
         if dict_args[argname] != parser.get_default(argname):
@@ -50,7 +50,7 @@ def make_exp_name(args, parser):
                 arg_str = 'T' if dict_args[argname] else 'F'
             else:
                 arg_str = str(dict_args[argname])[:7]
-            if argname is not '':
+            if argname != '':
                 exp_name += '_{}_{}'.format(str(argname), arg_str)
             else:
                 exp_name += '_{}'.format(arg_str)
@@ -106,7 +106,7 @@ def prep_experiment(args, parser):
         save_log('log', args.exp_path, args.date_str, rank=args.local_rank)
         open(os.path.join(args.exp_path, args.date_str + '.txt'), 'w').write(
             str(args) + '\n\n')
-        writer = SummaryWriter(logdir=args.tb_exp_path, comment=args.tb_tag)
+        writer = SummaryWriter(log_dir=args.tb_exp_path, comment=args.tb_tag)
         return writer
     return None
 

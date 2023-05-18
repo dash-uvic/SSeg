@@ -19,7 +19,7 @@ def setup_loaders(args):
     input: argument passed by the user
     return:  training data loader, validation data loader loader,  train_set
     """
-
+    print("dataset = ", args.dataset)
     if args.dataset == 'cityscapes':
         args.dataset_cls = cityscapes
         args.train_batch_size = args.bs_mult * args.ngpu
@@ -64,12 +64,12 @@ def setup_loaders(args):
         raise Exception('Dataset {} is not supported'.format(args.dataset))
 
     # Readjust batch size to mini-batch size for apex
-    if args.apex:
+    if args.distributed:
         args.train_batch_size = args.bs_mult
         args.val_batch_size = args.bs_mult_val
 
     args.num_workers = 4 * args.ngpu
-    if args.test_mode:
+    if args.dry_run:
         args.num_workers = 1
 
 
@@ -140,7 +140,7 @@ def setup_loaders(args):
                 cv_split=args.cv,
                 class_uniform_pct=args.class_uniform_pct,
                 class_uniform_tile=args.class_uniform_tile,
-                test=args.test_mode,
+                test=args.dry_run,
                 coarse_boost_classes=coarse_boost_classes)
         else:
             train_set = args.dataset_cls.CityScapes(
@@ -168,7 +168,7 @@ def setup_loaders(args):
             dump_images=args.dump_augmentation_images,
             class_uniform_pct=args.class_uniform_pct,
             class_uniform_tile=args.class_uniform_tile,
-            test=args.test_mode)
+            test=args.dry_run)
         val_set = args.dataset_cls.Mapillary(
             'semantic', 'val',
             joint_transform_list=val_joint_transform_list,
@@ -188,7 +188,7 @@ def setup_loaders(args):
             dump_images=args.dump_augmentation_images,
             class_uniform_pct=args.class_uniform_pct,
             class_uniform_tile=args.class_uniform_tile,
-            test=args.test_mode)
+            test=args.dry_run)
         # TODO HACK 'val' set to 'train' due to .
         val_set = args.dataset_cls.UAVid(
             'semantic', 'train',
@@ -210,7 +210,7 @@ def setup_loaders(args):
             dump_images=args.dump_augmentation_images,
             class_uniform_pct=args.class_uniform_pct,
             class_uniform_tile=args.class_uniform_tile,
-            test=args.test_mode)
+            test=args.dry_run)
         val_set = args.dataset_cls.ade20k(
             'semantic', 'val',
             joint_transform_list=val_joint_transform_list,
@@ -231,7 +231,7 @@ def setup_loaders(args):
             dump_images=args.dump_augmentation_images,
             class_uniform_pct=args.class_uniform_pct,
             class_uniform_tile=args.class_uniform_tile,
-            test=args.test_mode,
+            test=args.dry_run,
             cv_split=args.cv,
             scf=args.scf,
             hardnm=args.hardnm)
@@ -257,7 +257,7 @@ def setup_loaders(args):
             dump_images=args.dump_augmentation_images,
             class_uniform_pct=args.class_uniform_pct,
             class_uniform_tile=args.class_uniform_tile,
-            test=args.test_mode,
+            test=args.dry_run,
             cv_split=args.cv,
             scf=args.scf,
             hardnm=args.hardnm)
@@ -276,7 +276,7 @@ def setup_loaders(args):
     else:
         raise Exception('Dataset {} is not supported'.format(args.dataset))
     
-    if args.apex:
+    if args.distributed:
         from datasets.sampler import DistributedSampler
         train_sampler = DistributedSampler(train_set, pad=True, permutation=True, consecutive_sample=False)
         val_sampler = DistributedSampler(val_set, pad=False, permutation=False, consecutive_sample=False)

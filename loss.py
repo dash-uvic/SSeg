@@ -19,7 +19,7 @@ def get_loss(args):
 
     if args.img_wt_loss:
         criterion = ImageBasedCrossEntropyLoss2d(
-            classes=args.dataset_cls.num_classes, size_average=True,
+            classes=args.dataset_cls.num_classes, reduction="mean",
             ignore_index=args.dataset_cls.ignore_label,
             upper_bound=args.wt_bound).cuda()
     elif args.jointwtborder:
@@ -27,10 +27,10 @@ def get_loss(args):
                                      ignore_index=args.dataset_cls.ignore_label,
                                      upper_bound=args.wt_bound).cuda()
     else:
-        criterion = CrossEntropyLoss2d(size_average=True,
+        criterion = CrossEntropyLoss2d(reduction="mean",
                                        ignore_index=args.dataset_cls.ignore_label).cuda()
 
-    criterion_val = CrossEntropyLoss2d(size_average=True,
+    criterion_val = CrossEntropyLoss2d(reduction="mean",
                                        weight=None,
                                        ignore_index=args.dataset_cls.ignore_label).cuda()
     return criterion, criterion_val
@@ -41,12 +41,12 @@ class ImageBasedCrossEntropyLoss2d(nn.Module):
     Image Weighted Cross Entropy Loss
     """
 
-    def __init__(self, classes, weight=None, size_average=True, ignore_index=255,
+    def __init__(self, classes, weight=None, reduction="mean", ignore_index=255,
                  norm=False, upper_bound=1.0):
         super(ImageBasedCrossEntropyLoss2d, self).__init__()
         logging.info("Using Per Image based weighted loss")
         self.num_classes = classes
-        self.nll_loss = nn.NLLLoss2d(weight, size_average, ignore_index)
+        self.nll_loss = nn.NLLLoss(weight,  reduction=reduction, ignore_index=ignore_index)
         self.norm = norm
         self.upper_bound = upper_bound
         self.batch_weights = cfg.BATCH_WEIGHTING
@@ -76,7 +76,7 @@ class ImageBasedCrossEntropyLoss2d(nn.Module):
                 weights = self.calculate_weights(target_cpu[i])
                 self.nll_loss.weight = torch.Tensor(weights).cuda()
 
-            loss += self.nll_loss(F.log_softmax(inputs[i].unsqueeze(0)),
+            loss += self.nll_loss(F.log_softmax(inputs[i].unsqueeze(0), dim=-1),
                                   targets[i].unsqueeze(0))
         return loss
 
@@ -87,20 +87,20 @@ class CrossEntropyLoss2d(nn.Module):
     Cross Entroply NLL Loss
     """
 
-    def __init__(self, weight=None, size_average=True, ignore_index=255):
+    def __init__(self, weight=None, reduction="mean", ignore_index=255):
         super(CrossEntropyLoss2d, self).__init__()
         logging.info("Using Cross Entropy Loss")
-        self.nll_loss = nn.NLLLoss2d(weight, size_average, ignore_index)
+        self.nll_loss = nn.NLLLoss(weight, reduction=reduction, ignore_index=ignore_index)
         # self.weight = weight
 
     def forward(self, inputs, targets):
-        return self.nll_loss(F.log_softmax(inputs), targets)
+        return self.nll_loss(F.log_softmax(inputs, dim=1), targets)
 
 def customsoftmax(inp, multihotmask):
     """
     Custom Softmax
     """
-    soft = F.softmax(inp)
+    soft = F.softmax(inp, dim=1)
     # This takes the mask * softmax ( sums it up hence summing up the classes in border
     # then takes of summed up version vs no summed version
     return torch.log(

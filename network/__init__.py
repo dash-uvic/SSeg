@@ -21,13 +21,13 @@ def get_net(args, criterion):
     return net
 
 
-def wrap_network_in_dataparallel(net, use_apex_data_parallel=False):
+def wrap_network_in_dataparallel(net, distributed):
     """
     Wrap the network in Dataparallel
     """
-    if use_apex_data_parallel:
-        import apex
-        net = apex.parallel.DistributedDataParallel(net)
+    if distributed:#use_apex_data_parallel:
+        #net = apex.parallel.DistributedDataParallel(net)
+        net = torch.nn.parallel.DistributedDataParallel(net, device_ids=[gpu])
     else:
         net = torch.nn.DataParallel(net)
     return net

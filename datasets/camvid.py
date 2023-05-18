@@ -79,6 +79,7 @@ def add_items(img_path, mask_path, aug_img_path, aug_mask_path, mode, maxSkip):
 
     for it in c_items:
         item = (os.path.join(img_path, it), os.path.join(mask_path, it))
+        assert os.path.exists(item[0]) and os.path.exists(item[1]), item 
         items.append(item)
         if mode != 'test' and maxSkip > 0:
             seq_info = it.split("_")
@@ -99,10 +100,12 @@ def add_items(img_path, mask_path, aug_img_path, aug_mask_path, mode, maxSkip):
 
             prev_item = (os.path.join(aug_img_path, prev_it), os.path.join(aug_mask_path, prev_it))
             next_item = (os.path.join(aug_img_path, next_it), os.path.join(aug_mask_path, next_it))
+            
             if os.path.isfile(prev_item[0]) and os.path.isfile(prev_item[1]):
                 aug_items.append(prev_item)
             if os.path.isfile(next_item[0]) and os.path.isfile(next_item[1]):
                 aug_items.append(next_item)
+    
     return items, aug_items
 
 def make_dataset(quality, mode, maxSkip=0, cv_split=0, hardnm=0):
@@ -181,9 +184,10 @@ class CAMVID(data.Dataset):
         assert len(self.imgs), 'Found 0 images, please check the data set'
 
         # Centroids for GT data
+        print(self.class_uniform_pct)
         if self.class_uniform_pct > 0:
             json_fn = 'camvid_tile{}_cv{}_{}.json'.format(self.class_uniform_tile, self.cv_split, self.mode)
-
+            
             if os.path.isfile(json_fn):
                 with open(json_fn, 'r') as json_data:
                     centroids = json.load(json_data)

@@ -95,12 +95,13 @@ def assert_and_infer_cfg(args, make_immutable=True, train_mode=True):
     """
 
     if hasattr(args, 'syncbn') and args.syncbn:
-        if args.apex:
-            import apex
-            __C.MODEL.BN = 'apex-syncnorm'
-            __C.MODEL.BNFUNC = apex.parallel.SyncBatchNorm
+        if args.distributed:
+            __C.MODEL.BN = 'syncnorm'
+            __C.MODEL.BNFUNC = torch.nn.SyncBatchNorm
         else:
-            raise Exception('No Support for SyncBN without Apex')
+            #raise Exception('No Support for SyncBN without Apex')
+            __C.MODEL.BNFUNC = torch.nn.BatchNorm2d
+            print('SyncBN requires --distributed be set, using regular batch norm')
     else:
         __C.MODEL.BNFUNC = torch.nn.BatchNorm2d
         print('Using regular batch norm')

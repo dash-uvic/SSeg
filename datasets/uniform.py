@@ -173,7 +173,7 @@ def build_epoch(imgs, centroids, num_classes, class_uniform_pct):
     num_rand = num_epoch - num_per_class * num_classes
     # create random crops
     imgs_uniform = random_sampling(imgs, num_rand)
-
+    
     # now add uniform sampling
     for class_id in range(num_classes):
         string_format = "cls %d len %d"% (class_id, len(centroids[class_id]))

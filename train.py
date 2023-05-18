@@ -9,6 +9,7 @@ import os
 import torch
 #from apex import amp
 
+
 from config import cfg, assert_and_infer_cfg
 from utils.misc import AverageMeter, prep_experiment, evaluate_eval, fast_hist
 import datasets
@@ -52,10 +53,6 @@ parser.add_argument('--rescale', type=float, default=1.0,
 parser.add_argument('--repoly', type=float, default=1.5,
                     help='Warm Restart new poly exp')
 
-parser.add_argument('--apex', action='store_true', default=False,
-                    help='Use Nvidia Apex Distributed Data Parallel')
-parser.add_argument('--fp16', action='store_true', default=False,
-                    help='Use Nvidia Apex AMP')
 
 parser.add_argument('--local_rank', default=0, type=int,
                     help='parameter used by apex library')
@@ -113,39 +110,61 @@ parser.add_argument('--syncbn', action='store_true', default=False,
                     help='Use Synchronized BN')
 parser.add_argument('--dump_augmentation_images', action='store_true', default=False,
                     help='Dump Augmentated Images for sanity check')
-parser.add_argument('--test_mode', action='store_true', default=False,
-                    help='Minimum testing to verify nothing failed, ' +
-                    'Runs code for 1 epoch of train and val')
 parser.add_argument('-wb', '--wt_bound', type=float, default=1.0,
                     help='Weight Scaling for the losses')
 parser.add_argument('--maxSkip', type=int, default=0,
                     help='Skip x number of  frames of video augmented dataset')
 parser.add_argument('--scf', action='store_true', default=False,
                     help='scale correction factor')
+
+
+
+#parser.add_argument('--apex', action='store_true', default=False,
+#                    help='Use Nvidia Apex Distributed Data Parallel')
+#parser.add_argument('--fp16', action='store_true', default=False,
+#                    help='Use Nvidia Apex AMP')
+
+#parser.add_argument('--test_mode', action='store_true', default=False,
+#                    help='Minimum testing to verify nothing failed, ' +
+#                    'Runs code for 1 epoch of train and val')
+parser.add_argument('--distributed', action='store_true', default=False,
+                    help='Use PyTorch Distributed Model')
+parser.add_argument('--amp', action='store_true', default=False,
+                    help='Use PyTorch AMP')
+parser.add_argument('--dry-run', action='store_true', default=False,
+                    help='Minimum testing to verify nothing failed, ' +
+                    'Runs code for 2 epoch of train and val')
+
+
+
 args = parser.parse_args()
 args.best_record = {'epoch': -1, 'iter': 0, 'val_loss': 1e10, 'acc': 0,
                     'acc_cls': 0, 'mean_iu': 0, 'fwavacc': 0}
+
 
 # Enable CUDNN Benchmarking optimization
 torch.backends.cudnn.benchmark = True
 args.world_size = 1
 
 # Test Mode run two epochs with a few iterations of training and val
-if args.test_mode:
-    args.max_epoch = 2
+if args.dry_run:
+    args.max_epoch = 3
 
+"""
 if 'WORLD_SIZE' in os.environ and args.apex:
     args.apex = int(os.environ['WORLD_SIZE']) > 1
     args.world_size = int(os.environ['WORLD_SIZE'])
     print("Total world size: ", int(os.environ['WORLD_SIZE']))
-
-if args.apex:
+"""
+if args.distributed:
+    ngpus_per_node = torch.cuda.device_count()
+    args.local_rank = int(os.environ.get("SLURM_NODEID"))*ngpus_per_node + int(os.environ.get("SLURM_LOCALID")) 
     # Check that we are running with cuda as distributed is only supported for cuda.
-    torch.cuda.set_device(args.local_rank)
+    torch.cuda.set_device(args.gpu)
     print('My Rank:', args.local_rank)
     # Initialize distributed communication
-    torch.distributed.init_process_group(backend='nccl',
-                                         init_method='env://')
+    torch.distributed.init_process_group(backend='nccl|gloo')
+    #pu.setup_for_distributed(args.local_rank == 0)
 
 def main():
     """
@@ -160,10 +179,12 @@ def main():
     net = network.get_net(args, criterion)
     optim, scheduler = optimizer.get_optimizer(args, net)
 
-    if args.fp16:
+    #TODO: they had amp commented out
+    if args.amp:
         net, optim = amp.initialize(net, optim, opt_level="O1")
 
-    net = network.wrap_network_in_dataparallel(net, args.apex)
+    net = network.wrap_network_in_dataparallel(net, args.distributed) 
+
     if args.snapshot:
         optimizer.load_weights(net, optim,
                                args.snapshot, args.restore_optimizer)
@@ -176,9 +197,9 @@ def main():
         cfg.EPOCH = epoch
         cfg.immutable(True)
 
-        scheduler.step()
         train(train_loader, net, optim, epoch, writer)
-        if args.apex:
+        scheduler.step()
+        if args.distributed:
             train_loader.sampler.set_epoch(epoch + 1)
         #validate(val_loader, net, criterion_val, optim, epoch, writer)
         if args.class_uniform_pct:
@@ -214,9 +235,10 @@ def train(train_loader, net, optim, curr_epoch, writer):
 
         optim.zero_grad()
 
-        main_loss = net(inputs, gts=gts)
+        with torch.cuda.amp.autocast():
+            main_loss = net(inputs, gts=gts)
 
-        if args.apex:
+        if args.distributed:
             log_main_loss = main_loss.clone().detach_()
             torch.distributed.all_reduce(log_main_loss, torch.distributed.ReduceOp.SUM)
             log_main_loss = log_main_loss / args.world_size
@@ -225,7 +247,7 @@ def train(train_loader, net, optim, curr_epoch, writer):
             log_main_loss = main_loss.clone().detach_()
 
         train_main_loss.update(log_main_loss.item(), batch_pixel_size)
-        if args.fp16:
+        if args.amp:
             with amp.scale_loss(main_loss, optim) as scaled_loss:
                 scaled_loss.backward()
         else:
@@ -248,7 +270,7 @@ def train(train_loader, net, optim, curr_epoch, writer):
             writer.add_scalar('training/lr', optim.param_groups[-1]['lr'],
                               curr_iter)
 
-        if i > 5 and args.test_mode:
+        if i > 5 and args.dry_run:
             return
 
 
@@ -290,7 +312,7 @@ def validate(val_loader, net, criterion, optim, curr_epoch, writer):
         if val_idx % 20 == 0:
             if args.local_rank == 0:
                 logging.info("validating: %d / %d", val_idx + 1, len(val_loader))
-        if val_idx > 10 and args.test_mode:
+        if val_idx > 10 and args.dry_run:
             break
 
         # Image Dumps
@@ -301,7 +323,7 @@ def validate(val_loader, net, criterion, optim, curr_epoch, writer):
                              args.dataset_cls.num_classes)
         del output, val_idx, data
 
-    if args.apex:
+    if args.distributed:
         iou_acc_tensor = torch.cuda.FloatTensor(iou_acc)
         torch.distributed.all_reduce(iou_acc_tensor, op=torch.distributed.ReduceOp.SUM)
         iou_acc = iou_acc_tensor.cpu().numpy()
