@@ -158,13 +158,18 @@ if 'WORLD_SIZE' in os.environ and args.apex:
 """
 if args.distributed:
     ngpus_per_node = torch.cuda.device_count()
+    args.world_size = ngpus_per_node #TODO: only works if using 1 node
     args.gpu  = int(os.environ.get("SLURM_LOCALID"))
     args.local_rank = int(os.environ.get("SLURM_NODEID"))*ngpus_per_node + int(os.environ.get("SLURM_LOCALID")) 
     # Check that we are running with cuda as distributed is only supported for cuda.
     torch.cuda.set_device(args.gpu)
     print(f'My Rank and GPU: {args.local_rank} {args.gpu}/{ngpus_per_node}')
     # Initialize distributed communication
-    torch.distributed.init_process_group(backend='gloo')
+    torch.distributed.init_process_group(
+            backend='gloo',
+            world_size=args.world_size,
+            rank=args.local_rank
+            )
     #pu.setup_for_distributed(args.local_rank == 0)
 
 def main():

@@ -13,7 +13,8 @@ module load python/3.8
 source $HOME/py38test/bin/activate
 
 #nproc_per_node=# of GPUs
-torchrun --nproc_per_node=4 --nnodes=1 train.py \
+#torchrun --nproc_per_node=4 --nnodes=1 train.py \
+srun python train.py \
         --dataset camvid \
         --cv 2 \
         --arch network.deepv3.DeepWV3Plus \
