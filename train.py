@@ -162,9 +162,9 @@ if args.distributed:
     args.local_rank = int(os.environ.get("SLURM_NODEID"))*ngpus_per_node + int(os.environ.get("SLURM_LOCALID")) 
     # Check that we are running with cuda as distributed is only supported for cuda.
     torch.cuda.set_device(args.gpu)
-    print('My Rank:', args.local_rank)
+    print(f'My Rank and GPU: {args.local_rank} {args.gpu}/{ngpus_per_node}')
     # Initialize distributed communication
-    torch.distributed.init_process_group(backend='nccl|gloo')
+    torch.distributed.init_process_group(backend='gloo')
     #pu.setup_for_distributed(args.local_rank == 0)
 
 def main():
@@ -184,7 +184,7 @@ def main():
     if args.amp:
         net, optim = amp.initialize(net, optim, opt_level="O1")
 
-    net = network.wrap_network_in_dataparallel(net, args.distributed) 
+    net = network.wrap_network_in_dataparallel(net, args.distributed, args.gpu) 
 
     if args.snapshot:
         optimizer.load_weights(net, optim,

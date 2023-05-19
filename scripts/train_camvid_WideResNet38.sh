@@ -6,6 +6,8 @@
 #SBATCH --mem=32G        
 #SBATCH --job-name=ct-SSeg
 #SBATCH --output=%N-%j.out    #Output from the job is redirected here
+#SBATCH --mail-type=BEGIN
+#SBATCH --mail-user=adash42@uvic.ca
 
 module load python/3.8
 source $HOME/py38test/bin/activate

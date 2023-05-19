@@ -21,7 +21,7 @@ def get_net(args, criterion):
     return net
 
 
-def wrap_network_in_dataparallel(net, distributed):
+def wrap_network_in_dataparallel(net, distributed, gpu):
     """
     Wrap the network in Dataparallel
     """
