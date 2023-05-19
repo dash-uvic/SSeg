@@ -158,6 +158,7 @@ if 'WORLD_SIZE' in os.environ and args.apex:
 """
 if args.distributed:
     ngpus_per_node = torch.cuda.device_count()
+    args.gpu  = int(os.environ.get("SLURM_LOCALID"))
     args.local_rank = int(os.environ.get("SLURM_NODEID"))*ngpus_per_node + int(os.environ.get("SLURM_LOCALID")) 
     # Check that we are running with cuda as distributed is only supported for cuda.
     torch.cuda.set_device(args.gpu)

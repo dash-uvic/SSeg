@@ -1,26 +1,21 @@
 #!/bin/bash
 #SBATCH --account=def-branzana     
-#SBATCH --time=0-11:00      
+#SBATCH --time=0-11:30     
 #SBATCH --gres=gpu:4       #4 = no of gpus, any type 
 #SBATCH --tasks-per-node=4 #= number of gpus   
 #SBATCH --mem=32G        
 #SBATCH --job-name=ct-SSeg
 #SBATCH --output=%N-%j.out    #Output from the job is redirected here
 
-module purge
-module load python/3.8 scipy-stack
-
-virtualenv --no-download $SLURM_TMPDIR/env
-source $SLURM_TMPDIR/env/bin/activate
-
-pip install --no-index -r requirements.txt 
+module load python/3.8
+source $HOME/py38test/bin/activate
 
 #nproc_per_node=# of GPUs
-python -m torch.distributed.launch --nproc_per_node=4 train.py \
+torchrun --nproc_per_node=4 --nnodes=1 train.py \
         --dataset camvid \
         --cv 2 \
         --arch network.deepv3.DeepWV3Plus \
-        --snapshot ./pretrained_models/camvid_best.pth \
+        --snapshot ./pretrained_models/cityscapes_best.pth \
         --class_uniform_pct 0.5 \
         --class_uniform_tile 720 \
         --max_cu_epoch 150 \
