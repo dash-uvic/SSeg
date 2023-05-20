@@ -54,6 +54,8 @@ parser.add_argument('--repoly', type=float, default=1.5,
                     help='Warm Restart new poly exp')
 
 
+parser.add_argument('--world_size', default=1, type=int)
+parser.add_argument('--init_method', type=str)
 parser.add_argument('--local_rank', default=0, type=int,
                     help='parameter used by apex library')
 
@@ -144,7 +146,7 @@ args.best_record = {'epoch': -1, 'iter': 0, 'val_loss': 1e10, 'acc': 0,
 
 # Enable CUDNN Benchmarking optimization
 torch.backends.cudnn.benchmark = True
-args.world_size = 1
+#args.world_size = 1
 
 # Test Mode run two epochs with a few iterations of training and val
 if args.dry_run:
@@ -158,7 +160,7 @@ if 'WORLD_SIZE' in os.environ and args.apex:
 """
 if args.distributed:
     ngpus_per_node = torch.cuda.device_count()
-    args.world_size = ngpus_per_node #TODO: only works if using 1 node
+    #args.world_size = ngpus_per_node #TODO: only works if using 1 node
     args.gpu  = int(os.environ.get("SLURM_LOCALID"))
     args.local_rank = int(os.environ.get("SLURM_NODEID"))*ngpus_per_node + int(os.environ.get("SLURM_LOCALID")) 
     # Check that we are running with cuda as distributed is only supported for cuda.
@@ -168,6 +170,7 @@ if args.distributed:
     torch.distributed.init_process_group(
             backend='gloo',
             world_size=args.world_size,
+            init_method=args.init_method,
             rank=args.local_rank
             )
     #pu.setup_for_distributed(args.local_rank == 0)

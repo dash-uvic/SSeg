@@ -25,7 +25,7 @@ def make_exp_name(args, parser):
     # sort so that we get a consistent directory name
     argnames = sorted(dict_args)
     ignorelist = ['exp', 'arch','prev_best_filepath', 'lr_schedule', 'max_cu_epoch', 'max_epoch',
-                  'strict_bdr_cls', 'world_size', 'tb_path','best_record', 'dry-run', 'ckpt']
+                  'strict_bdr_cls', 'world_size', 'tb_path','best_record', 'init_method', 'world_size', 'dry-run', 'ckpt']
     # build experiment name with non-default args
     for argname in argnames:
         if dict_args[argname] != parser.get_default(argname):
@@ -54,7 +54,8 @@ def make_exp_name(args, parser):
                 exp_name += '_{}_{}'.format(str(argname), arg_str)
             else:
                 exp_name += '_{}'.format(arg_str)
-    # clean special chars out    exp_name = re.sub(r'[^A-Za-z0-9_\-]+', '', exp_name)
+    # clean special chars out    
+    exp_name = re.sub(r'[^A-Za-z0-9_\-\.]+', '', exp_name)
     return exp_name
 
 def fast_hist(label_pred, label_true, num_classes):
