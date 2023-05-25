@@ -205,7 +205,7 @@ def evaluate_eval(args, net, optimizer, val_loss, hist, dump_images, writer, epo
         idx = 0
         
         visualize = standard_transforms.Compose([
-            standard_transforms.Scale(384),
+            standard_transforms.Resize(384),
             standard_transforms.ToTensor()
         ])
         for bs_idx, bs_data in enumerate(dump_images):
